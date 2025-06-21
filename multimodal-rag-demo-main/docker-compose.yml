@@ -1,7 +1,7 @@
-version: '3.8'
+# Docker Compose production configuration for Multimodal RAG System
+# Includes nginx reverse proxy, PostgreSQL, and Redis
 
-services:
-  # Main RAG Application
+services:  # Main RAG Application with API
   rag-app:
     build:
       context: .
@@ -14,20 +14,35 @@ services:
       - DATA_DIR=/app/data
       - STREAMLIT_SERVER_PORT=8501
       - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_ENABLE_CORS=true
+      - STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=false
     ports:
       - "8501:8501"
+      - "8000:8000"  # FastAPI port for n8n integration
     volumes:
       - rag_data:/app/data
       - rag_uploads:/app/uploads
     networks:
       - rag-network
     restart: unless-stopped
+    command: >
+      bash -c "
+        streamlit run app.py 
+        --server.port 8501 
+        --server.address 0.0.0.0 
+        --server.headless true
+        --server.enableCORS true
+        --server.enableXsrfProtection false
+        --browser.gatherUsageStats false &
+        python -m uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+      "
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      test: ["CMD", "/app/healthcheck.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
     depends_on:
       - redis
 
@@ -69,9 +84,7 @@ services:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-raguser} -d ${POSTGRES_DB:-ragdb}"]
       interval: 10s
       timeout: 5s
-      retries: 5
-
-  # Nginx reverse proxy for production deployment
+      retries: 5  # Nginx reverse proxy for production deployment
   nginx:
     image: nginx:alpine
     container_name: rag-nginx
@@ -87,10 +100,11 @@ services:
     depends_on:
       - rag-app
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD", "sh", "-c", "pidof nginx"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
 
 volumes:
   rag_data:

@@ -18,6 +18,8 @@ RUN apt-get update && apt-get install -y \
     libfreetype6-dev \
     curl \
     wget \
+    net-tools \
+    netcat \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -36,17 +38,18 @@ COPY . .
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/data /app/uploads && \
+    chmod +x /app/healthcheck.sh && \
     chown -R appuser:appuser /app
 
 # Switch to non-root user
 USER appuser
 
-# Expose port
-EXPOSE 8501
+# Expose ports
+EXPOSE 8501 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+# Health check using custom script
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD /app/healthcheck.sh || exit 1
 
-# Default command
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Default command runs both Streamlit and FastAPI
+CMD ["bash", "-c", "streamlit run app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true --server.enableCORS true --server.enableXsrfProtection false --browser.gatherUsageStats false & python -m uvicorn api:app --host 0.0.0.0 --port 8000 & wait"]

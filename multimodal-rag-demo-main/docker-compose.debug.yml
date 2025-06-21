@@ -1,13 +1,13 @@
-# Docker Compose development configuration for Multimodal RAG System
-# Optimized for external server access
+# Docker Compose DEBUG configuration for external access troubleshooting
+# Use this version when having connectivity issues
 
 services:
-  # Development version of RAG Application  
+  # Development version of RAG Application with DEBUG mode
   rag-app:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    container_name: multimodal-rag-app-dev
+    container_name: multimodal-rag-app-debug
     environment:
       - COHERE_API_KEY=${COHERE_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
@@ -23,46 +23,48 @@ services:
       - PYTHONUNBUFFERED=1
     ports:
       - "8501:8501"
-      - "8000:8000"  # FastAPI port for n8n integration
+      - "8000:8000"
     volumes:
       - ./:/app
-      - rag_data_dev:/app/data
-      - rag_uploads_dev:/app/uploads
+      - rag_data_debug:/app/data
+      - rag_uploads_debug:/app/uploads
     networks:
-      - rag-network-dev
+      - rag-network-debug
     restart: unless-stopped
     depends_on:
-      - redis-dev
-    healthcheck:
-      test: ["CMD", "/app/healthcheck-simple.sh"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 120s
+      - redis-debug
+    command: ["/app/start-debug.sh"]
+    # Disabled health check for debugging
+    # healthcheck:
+    #   test: ["CMD", "/app/healthcheck-simple.sh"]
+    #   interval: 60s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 180s
 
-  # Redis for development
-  redis-dev:
+  # Redis for debugging
+  redis-debug:
     image: redis:7-alpine
-    container_name: rag-redis-dev
+    container_name: rag-redis-debug
     ports:
       - "6379:6379"
     volumes:
-      - redis_data_dev:/data
+      - redis_data_debug:/data
     networks:
-      - rag-network-dev
+      - rag-network-debug
     restart: unless-stopped
     command: redis-server --appendonly yes
 
 volumes:
-  rag_data_dev:
+  rag_data_debug:
     driver: local
-  rag_uploads_dev:
+  rag_uploads_debug:
     driver: local
-  redis_data_dev:
+  redis_data_debug:
     driver: local
 
 networks:
-  rag-network-dev:
+  rag-network-debug:
     driver: bridge
     driver_opts:
       com.docker.network.bridge.enable_icc: "true"
