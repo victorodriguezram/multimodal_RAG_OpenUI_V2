@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # Development version of RAG Application
+  rag-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: multimodal-rag-app-dev
+    environment:
+      - COHERE_API_KEY=${COHERE_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-pro}
+      - DATA_DIR=/app/data
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_RUNONSTARTUP=true
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./:/app
+      - rag_data_dev:/app/data
+      - rag_uploads_dev:/app/uploads
+    networks:
+      - rag-network-dev
+    restart: unless-stopped
+    command: streamlit run app.py --server.port 8501 --server.address 0.0.0.0 --server.runOnSave true
+    depends_on:
+      - redis-dev
+
+  # Redis for development
+  redis-dev:
+    image: redis:7-alpine
+    container_name: rag-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_dev:/data
+    networks:
+      - rag-network-dev
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+volumes:
+  rag_data_dev:
+    driver: local
+  rag_uploads_dev:
+    driver: local
+  redis_data_dev:
+    driver: local
+
+networks:
+  rag-network-dev:
+    driver: bridge
