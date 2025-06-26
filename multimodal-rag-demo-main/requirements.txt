@@ -8,3 +8,4 @@ matplotlib==3.8.2
 pillow==10.2.0
 numpy==1.26.3
 pandas==2.2.0
+faiss-cpu==1.7.4

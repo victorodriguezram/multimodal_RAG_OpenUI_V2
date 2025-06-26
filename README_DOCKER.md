@@ -7,6 +7,7 @@ A production-ready containerized deployment of a **Multimodal Retrieval-Augmente
 - [System Overview](#system-overview)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
+- [Complete Rebuild](#complete-rebuild-for-dependency-issues)
 - [Complete Docker Cleanup](#complete-docker-cleanup-before-redeployment)
 - [Architecture](#architecture)
 - [API Documentation](#api-documentation)
@@ -109,7 +110,8 @@ chmod +x check-env.sh
 # If you had a previous deployment, clean up first (see cleanup section)
 # Complete cleanup: docker stop $(docker ps -aq); docker rm $(docker ps -aq); docker rmi $(docker images -q) -f; docker system prune -a --volumes -f
 
-# Build and start all services
+# Build and start all services (force rebuild to ensure dependencies)
+docker-compose build --no-cache
 docker-compose up -d
 
 # Check service status
@@ -133,6 +135,47 @@ curl http://localhost:8000/health
 
 # Check system status
 curl http://localhost:8000/status
+```
+
+## 🔄 Complete Rebuild (For Dependency Issues)
+
+If you encounter import errors (like missing `faiss` module) or want to ensure a clean build:
+
+### Automated Rebuild
+```bash
+# Use the automated rebuild script
+chmod +x rebuild.sh
+./rebuild.sh
+```
+
+### Manual Rebuild
+```bash
+# Stop and remove containers with volumes
+docker-compose down -v --remove-orphans
+
+# Remove the application image to force rebuild
+docker rmi multimodal_rag_openui_v2-multimodal-rag 2>/dev/null || true
+
+# Build from scratch (no cache)
+docker-compose build --no-cache
+
+# Start containers
+docker-compose up -d
+
+# Check if import test passes
+docker-compose exec multimodal-rag python debug_imports.py
+```
+
+### Import Debugging
+```bash
+# Test all Python imports inside the container
+docker-compose exec multimodal-rag python debug_imports.py
+
+# View startup logs for errors
+docker-compose logs multimodal-rag
+
+# Interactive debugging session
+docker-compose exec multimodal-rag /bin/bash
 ```
 
 ## 🏛️ Architecture
@@ -473,6 +516,38 @@ docker-compose exec multimodal-rag cat config.py
   COHERE_API_KEY=co_your_actual_key_here
   GEMINI_API_KEY=AIza_your_actual_key_here
   ```
+
+#### 4. Missing Dependencies (FAISS)
+**Problem**: `ModuleNotFoundError: No module named 'faiss'`
+```bash
+# Check if faiss-cpu is in requirements
+docker-compose exec multimodal-rag pip list | grep faiss
+
+# Test all imports
+docker-compose exec multimodal-rag python debug_imports.py
+```
+
+**Solutions**:
+- **Rebuild containers** with updated requirements: `docker-compose build --no-cache`
+- Ensure both `requirements.txt` and `api_requirements.txt` include `faiss-cpu==1.7.4`
+- Use the automated rebuild script: `./rebuild.sh`
+- For manual fix: `docker-compose exec multimodal-rag pip install faiss-cpu==1.7.4`
+
+**Troubleshooting Steps**:
+```bash
+# 1. Check which requirements files exist
+ls -la *requirements*.txt
+
+# 2. Verify faiss-cpu is in both files
+grep faiss requirements.txt api_requirements.txt
+
+# 3. Complete rebuild if needed
+docker-compose down -v --remove-orphans
+docker rmi multimodal_rag_openui_v2-multimodal-rag
+docker-compose build --no-cache
+docker-compose up -d
+```
+```
 
 ### Health Check Commands
 ```bash

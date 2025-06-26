@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy requirements first for better caching
-COPY multimodal-rag-demo-main/requirements.txt .
+COPY requirements.txt .
 COPY api_requirements.txt .
 
 # Install Python dependencies
@@ -23,6 +23,7 @@ COPY multimodal-rag-demo-main/ .
 COPY config.py .
 COPY api_server.py .
 COPY start.sh .
+COPY debug_imports.py .
 
 # Create necessary directories
 RUN mkdir -p data uploads
