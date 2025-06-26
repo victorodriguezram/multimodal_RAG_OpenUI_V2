@@ -19,6 +19,8 @@ RUN pip install --no-cache-dir -r api_requirements.txt
 
 # Copy application code
 COPY multimodal-rag-demo-main/ .
+# Override with updated files
+COPY config.py .
 COPY api_server.py .
 COPY start.sh .
 

@@ -7,6 +7,7 @@ A production-ready containerized deployment of a **Multimodal Retrieval-Augmente
 - [System Overview](#system-overview)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
+- [Complete Docker Cleanup](#complete-docker-cleanup-before-redeployment)
 - [Architecture](#architecture)
 - [API Documentation](#api-documentation)
 - [N8N Integration](#n8n-integration)
@@ -82,10 +83,10 @@ cd multimodal_RAG_OpenUI_V2
 nano .env
 ```
 
-Update `.env` with your actual API keys:
+**CRITICAL**: Update `.env` with your actual API keys (NO quotes around values):
 ```env
-COHERE_API_KEY=your_actual_cohere_api_key_here
-GEMINI_API_KEY=your_actual_gemini_api_key_here
+COHERE_API_KEY=co_your_actual_cohere_key_here
+GEMINI_API_KEY=AIza_your_actual_gemini_key_here
 GEMINI_MODEL=gemini-2.5-flash-preview-04-17
 N8N_USER=admin
 N8N_PASSWORD=your_secure_password_here
@@ -93,8 +94,21 @@ N8N_ENCRYPTION_KEY=your_secure_encryption_key_here
 N8N_HOST=localhost
 ```
 
+**⚠️ Important Notes:**
+- Replace `co_your_actual_cohere_key_here` with your real Cohere API key from https://dashboard.cohere.com/
+- Replace `AIza_your_actual_gemini_key_here` with your real Gemini API key from https://aistudio.google.com/
+- Do NOT use quotes around the values
+- Do NOT leave placeholder text like `your_COHERE_API_KEY_here`
+
 ### 3. Deploy the System
 ```bash
+# IMPORTANT: Verify your .env configuration first
+chmod +x check-env.sh
+./check-env.sh
+
+# If you had a previous deployment, clean up first (see cleanup section)
+# Complete cleanup: docker stop $(docker ps -aq); docker rm $(docker ps -aq); docker rmi $(docker images -q) -f; docker system prune -a --volumes -f
+
 # Build and start all services
 docker-compose up -d
 
@@ -290,6 +304,129 @@ DELETE /documents/clear
 | FastAPI | 8000 | 8000 | REST API |
 | N8N | 5678 | 5678 | Automation Platform |
 
+## 🧹 Complete Docker Cleanup (Before Redeployment)
+
+If you need to completely remove all Docker resources from previous deployments, run these commands on your Linux instance:
+
+### Option 1: Nuclear Cleanup (Removes Everything)
+```bash
+# Stop all running containers
+docker stop $(docker ps -aq) 2>/dev/null || true
+
+# Remove all containers (running and stopped)
+docker rm $(docker ps -aq) 2>/dev/null || true
+
+# Remove ALL Docker images (including base images)
+docker rmi $(docker images -q) -f 2>/dev/null || true
+
+# Remove all volumes
+docker volume rm $(docker volume ls -q) 2>/dev/null || true
+
+# Remove all custom networks
+docker network rm $(docker network ls --filter type=custom -q) 2>/dev/null || true
+
+# Remove all build cache and unused data
+docker system prune -a --volumes -f
+
+# Remove all builder cache
+docker builder prune -a -f
+```
+
+### Option 2: Targeted Cleanup (Safer)
+```bash
+# Stop and remove only our project containers
+docker-compose down --remove-orphans --volumes --rmi all
+
+# Remove specific images if they exist
+docker rmi multimodal_rag_openui_v2-multimodal-rag:latest 2>/dev/null || true
+docker rmi n8nio/n8n:latest 2>/dev/null || true
+docker rmi python:3.10-slim 2>/dev/null || true
+
+# Remove specific volumes
+docker volume rm multimodal_rag_openui_v2_rag_data 2>/dev/null || true
+docker volume rm multimodal_rag_openui_v2_uploaded_files 2>/dev/null || true
+docker volume rm multimodal_rag_openui_v2_n8n_data 2>/dev/null || true
+
+# Clean up unused images and cache
+docker image prune -a -f
+docker system prune -f
+```
+
+### Option 3: Step-by-Step Verification
+```bash
+# 1. Check what's currently running
+echo "=== Current Docker State ==="
+docker ps -a
+docker images
+docker volume ls
+docker network ls
+
+# 2. Stop our specific containers
+echo "=== Stopping Project Containers ==="
+docker stop $(docker ps -q --filter "name=multimodal") 2>/dev/null || true
+docker stop $(docker ps -q --filter "name=n8n") 2>/dev/null || true
+
+# 3. Remove our specific containers
+echo "=== Removing Project Containers ==="
+docker rm $(docker ps -aq --filter "name=multimodal") 2>/dev/null || true
+docker rm $(docker ps -aq --filter "name=n8n") 2>/dev/null || true
+
+# 4. Remove our specific images
+echo "=== Removing Project Images ==="
+docker images | grep -E "(multimodal|n8n)" | awk '{print $3}' | xargs docker rmi -f 2>/dev/null || true
+
+# 5. Remove our specific volumes
+echo "=== Removing Project Volumes ==="
+docker volume ls | grep multimodal | awk '{print $2}' | xargs docker volume rm 2>/dev/null || true
+
+# 6. Check ports are free
+echo "=== Checking Port Availability ==="
+sudo netstat -tulpn | grep -E ":(8000|8501|5678)" || echo "All ports are free"
+
+# 7. Final cleanup
+echo "=== Final Cleanup ==="
+docker system prune -f
+```
+
+### Port Conflict Resolution
+```bash
+# Check what's using the ports
+sudo lsof -i :8000
+sudo lsof -i :8501
+sudo lsof -i :5678
+
+# Kill processes if needed (replace PID with actual process ID)
+sudo kill -9 <PID>
+
+# Alternative: Kill all processes on specific ports
+sudo fuser -k 8000/tcp 2>/dev/null || true
+sudo fuser -k 8501/tcp 2>/dev/null || true
+sudo fuser -k 5678/tcp 2>/dev/null || true
+```
+
+### Verification After Cleanup
+```bash
+# Verify everything is clean
+echo "=== Verification ==="
+echo "Containers: $(docker ps -aq | wc -l)"
+echo "Images: $(docker images -q | wc -l)"
+echo "Volumes: $(docker volume ls -q | wc -l)"
+echo "Networks: $(docker network ls --filter type=custom -q | wc -l)"
+
+# Should all return 0 or very few items
+docker ps -a
+docker images
+docker volume ls
+```
+
+### Quick One-Liner Cleanup
+```bash
+# Complete cleanup in one command
+docker stop $(docker ps -aq); docker rm $(docker ps -aq); docker rmi $(docker images -q) -f; docker volume rm $(docker volume ls -q); docker system prune -a --volumes -f; docker builder prune -a -f
+```
+
+**⚠️ Warning**: The nuclear cleanup will remove ALL Docker images, containers, and volumes on your system. Use the targeted cleanup if you have other Docker projects.
+
 ## 🔧 Troubleshooting
 
 ### Common Issues and Solutions
@@ -319,6 +456,23 @@ docker-compose logs multimodal-rag | grep -i "error"
 - Verify Cohere API key at https://dashboard.cohere.com/
 - Verify Gemini API key at https://aistudio.google.com/
 - Check API quotas and billing status
+
+#### 3. Configuration File Issues
+**Problem**: `NameError: name 'your_COHERE_API_KEY_here' is not defined`
+```bash
+# Check if config.py is properly using environment variables
+docker-compose exec multimodal-rag cat config.py
+```
+
+**Solutions**:
+- Ensure .env file exists with proper API keys (no quotes around values)
+- Rebuild containers after config changes: `docker-compose build --no-cache`
+- Verify environment variables are loaded: `docker-compose exec multimodal-rag env | grep API`
+- Check .env file format:
+  ```env
+  COHERE_API_KEY=co_your_actual_key_here
+  GEMINI_API_KEY=AIza_your_actual_key_here
+  ```
 
 ### Health Check Commands
 ```bash
