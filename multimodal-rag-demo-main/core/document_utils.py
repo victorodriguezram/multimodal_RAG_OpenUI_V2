@@ -7,8 +7,8 @@ import PyPDF2
 import pickle
 import numpy as np
 import faiss
-from config import DATA_DIR
 
+DATA_DIR = "data"
 os.makedirs(DATA_DIR, exist_ok=True)
 
 def pdf_to_images(pdf_file):
