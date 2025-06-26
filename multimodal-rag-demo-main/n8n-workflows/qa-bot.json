@@ -1,0 +1,254 @@
+{
+  "name": "Smart Q&A Bot",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "/webhook/qa-bot",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "qa-webhook",
+      "name": "Q&A Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ],
+      "webhookId": "qa-bot-webhook"
+    },
+    {
+      "parameters": {
+        "url": "http://api:8000/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{$env.RAG_API_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{$json.question}}"
+            },
+            {
+              "name": "top_k",
+              "value": 5
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "search-context",
+      "name": "Search Context",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "options": {
+          "temperature": 0.3,
+          "maxTokens": 500
+        },
+        "prompt": "=Context from documents:\n{{$json.results.map(r => r.content).join('\\n\\n')}}\n\nQuestion: {{$('Q&A Webhook').first().json.question}}\n\nBased on the context above, provide a comprehensive answer to the question. If the context doesn't contain enough information to answer the question, say so clearly.\n\nAnswer:"
+      },
+      "id": "generate-answer",
+      "name": "Generate Answer",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        920,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$('Search Context').first().json.results.length}}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "check-results",
+      "name": "Has Results?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": {
+          "answer": "={{$('Generate Answer').first().json.choices[0].message.content}}",
+          "sources": "={{$('Search Context').first().json.results.map(r => ({document_id: r.document_id, score: r.score, snippet: r.content.substring(0, 100) + '...'}))}}",
+          "confidence": "high"
+        }
+      },
+      "id": "respond-with-answer",
+      "name": "Respond with Answer",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": {
+          "answer": "I don't have enough information in my knowledge base to answer your question accurately. Please try rephrasing your question or check if the relevant documents have been uploaded.",
+          "sources": [],
+          "confidence": "low"
+        }
+      },
+      "id": "respond-no-context",
+      "name": "Respond No Context",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://api:8000/webhooks/n8n",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{$env.RAG_API_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "workflow_id",
+              "value": "qa-bot"
+            },
+            {
+              "name": "action",
+              "value": "question_answered"
+            },
+            {
+              "name": "data",
+              "value": {
+                "question": "={{$('Q&A Webhook').first().json.question}}",
+                "answer_generated": true,
+                "sources_found": "={{$('Search Context').first().json.results.length}}",
+                "user_id": "={{$('Q&A Webhook').first().json.user_id || 'anonymous'}}"
+              }
+            }
+          ]
+        }
+      },
+      "id": "log-interaction",
+      "name": "Log Interaction",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1140,
+        460
+      ]
+    }
+  ],
+  "connections": {
+    "Q&A Webhook": {
+      "main": [
+        [
+          {
+            "node": "Search Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Context": {
+      "main": [
+        [
+          {
+            "node": "Generate Answer",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Interaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Answer": {
+      "main": [
+        [
+          {
+            "node": "Has Results?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Results?": {
+      "main": [
+        [
+          {
+            "node": "Respond with Answer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond No Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "createdAt": "2025-06-26T12:00:00.000Z",
+  "updatedAt": "2025-06-26T12:00:00.000Z",
+  "id": "qa-bot-workflow",
+  "tags": [
+    {
+      "id": "rag-automation",
+      "name": "RAG Automation"
+    },
+    {
+      "id": "qa-bot",
+      "name": "Q&A Bot"
+    }
+  ]
+}
