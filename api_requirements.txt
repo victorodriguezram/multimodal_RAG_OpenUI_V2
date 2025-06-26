@@ -5,8 +5,8 @@ python-multipart==0.0.6
 python-magic==0.4.27
 
 # Core dependencies (needed for the multimodal RAG functionality)
-cohere==4.21.1
-google-generativeai==0.7.0
+cohere==4.57
+google-generativeai==0.8.3
 
 # PDF processing
 pdf2image==1.17.0

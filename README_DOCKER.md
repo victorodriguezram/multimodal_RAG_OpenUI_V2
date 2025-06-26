@@ -1,12 +1,26 @@
 # 🔍 Multimodal RAG System with Docker Compose & N8N Integration
 
-A production-ready containerized deployment of a **Multimodal Retrieval-Augmented Generation (RAG)** system that combines **Cohere's multimodal embeddings** with **Gemini 2.5 Flash** for answering questions from both text and images in PDF documents. This system includes a complete API layer for seamless N8N automation integration.
+A production-ready containerized deployment of a **Multimodal Retrieval-Augmented Generation (RAG)** system that combines **## 🔄 Complete Rebuild (For Dependency Issues)
+
+If you encounter import errors (like missing `faiss` module) or want to ensure a clean build:
+
+### Automated Rebuild (Recommended)
+```bash
+# Use the interactive script manager
+./run-scripts.sh
+# Then select option 7 (Rebuild Containers)
+
+# Or run directly
+chmod +x scripts/rebuild.sh
+./scripts/rebuild.sh
+```ultimodal embeddings** with **Gemini 2.5 Flash** for answering questions from both text and images in PDF documents. This system includes a complete API layer for seamless N8N automation integration.
 
 ## 📋 Table of Contents
 
 - [System Overview](#system-overview)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
+- [Script Management](#script-management)
 - [Complete Rebuild](#complete-rebuild-for-dependency-issues)
 - [Complete Docker Cleanup](#complete-docker-cleanup-before-redeployment)
 - [Architecture](#architecture)
@@ -103,9 +117,15 @@ N8N_HOST=localhost
 
 ### 3. Deploy the System
 ```bash
+# OPTION 1: Use the interactive script menu (RECOMMENDED)
+chmod +x run-scripts.sh
+./run-scripts.sh
+# Then select option 2 to verify environment, then option 6 to deploy
+
+# OPTION 2: Manual deployment
 # IMPORTANT: Verify your .env configuration first
-chmod +x check-env.sh
-./check-env.sh
+chmod +x scripts/check-env.sh
+./scripts/check-env.sh
 
 # If you had a previous deployment, clean up first (see cleanup section)
 # Complete cleanup: docker stop $(docker ps -aq); docker rm $(docker ps -aq); docker rmi $(docker images -q) -f; docker system prune -a --volumes -f
@@ -137,15 +157,61 @@ curl http://localhost:8000/health
 curl http://localhost:8000/status
 ```
 
-## 🔄 Complete Rebuild (For Dependency Issues)
+## � Script Management
+
+All utility scripts have been organized in the `/scripts` folder for better organization. You can use the interactive script manager for easy access:
+
+### Interactive Script Manager (Recommended)
+```bash
+# Launch the interactive script menu
+chmod +x run-scripts.sh
+./run-scripts.sh
+```
+
+The script manager provides a categorized menu with:
+
+**🚀 Installation & Setup:**
+- System prerequisites check
+- Environment configuration verification
+- Dependencies validation
+- Full automated setup
+- Package version fixes
+
+**🔧 Deployment & Maintenance:**
+- Full system deployment
+- Container rebuilding
+- Deployment validation
+
+**🧹 Cleanup & Troubleshooting:**
+- Targeted cleanup (safe)
+- Full project cleanup
+- Nuclear cleanup (⚠️ removes all Docker resources)
+
+### Manual Script Execution
+```bash
+# Run individual scripts directly
+./scripts/check-env.sh          # Check environment
+./scripts/deploy.sh             # Deploy system
+./scripts/rebuild.sh            # Rebuild containers
+./scripts/cleanup-targeted.sh   # Clean up project resources
+```
+
+### Script Categories
+- **Setup Scripts**: `check-deps.sh`, `check-env.sh`, `setup.sh`, `fix-versions.sh`
+- **Deployment Scripts**: `deploy.sh`, `rebuild.sh`, `validate.sh`
+- **Cleanup Scripts**: `cleanup-targeted.sh`, `cleanup-full.sh`, `cleanup-nuclear.sh`
+
+See `/scripts/README.md` for detailed script documentation.
+
+## �🔄 Complete Rebuild (For Dependency Issues)
 
 If you encounter import errors (like missing `faiss` module) or want to ensure a clean build:
 
 ### Automated Rebuild
 ```bash
 # Use the automated rebuild script
-chmod +x rebuild.sh
-./rebuild.sh
+chmod +x scripts/rebuild.sh
+./scripts/rebuild.sh
 ```
 
 ### Manual Rebuild
@@ -530,16 +596,29 @@ docker-compose exec multimodal-rag python debug_imports.py
 **Solutions**:
 - **Rebuild containers** with updated requirements: `docker-compose build --no-cache`
 - Ensure both `requirements.txt` and `api_requirements.txt` include `faiss-cpu==1.7.4`
-- Use the automated rebuild script: `./rebuild.sh`
+- Use the automated rebuild script: `./scripts/rebuild.sh`
 - For manual fix: `docker-compose exec multimodal-rag pip install faiss-cpu==1.7.4`
+
+#### 5. Package Version Issues
+**Problem**: `ERROR: Could not find a version that satisfies the requirement cohere==4.21.1`
+```bash
+# Check available package versions
+pip index versions cohere
+```
+
+**Solutions**:
+- **Updated package versions** in requirements files
+- Use `cohere==4.57` (latest stable version)
+- Use `google-generativeai==0.8.3` (latest compatible version)
+- **Rebuild containers** after version updates: `docker-compose build --no-cache`
 
 **Troubleshooting Steps**:
 ```bash
 # 1. Check which requirements files exist
 ls -la *requirements*.txt
 
-# 2. Verify faiss-cpu is in both files
-grep faiss requirements.txt api_requirements.txt
+# 2. Verify package versions are valid
+grep -E "(cohere|google-generativeai|faiss)" requirements.txt api_requirements.txt
 
 # 3. Complete rebuild if needed
 docker-compose down -v --remove-orphans

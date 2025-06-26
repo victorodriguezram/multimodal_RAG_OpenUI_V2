@@ -22,7 +22,7 @@ The transformation preserves all original functionality while adding robust API 
 
 ### Documentation and Scripts
 - **README_DOCKER.md**: Comprehensive deployment and usage documentation
-- **setup.sh**: Automated Linux deployment script
+- **scripts/setup.sh**: Automated Linux deployment script
 - **setup.ps1**: Windows PowerShell deployment script
 - **validate.sh**: System validation and testing script
 - **.gitignore**: Security-focused git ignore rules
@@ -80,7 +80,7 @@ cd multimodal_RAG_OpenUI_V2
 nano .env
 
 # 3. Run automated setup
-./setup.sh
+./scripts/setup.sh
 
 # 4. Validate deployment
 ./validate.sh

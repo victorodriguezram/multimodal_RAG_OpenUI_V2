@@ -22,7 +22,7 @@ COPY multimodal-rag-demo-main/ .
 # Override with updated files
 COPY config.py .
 COPY api_server.py .
-COPY start.sh .
+COPY scripts/start.sh .
 COPY debug_imports.py .
 
 # Create necessary directories
