@@ -42,9 +42,10 @@ def get_document_embedding(content, content_type="text"):
             )
             return np.array(response.embeddings.float[0])
         else:
+            # Convert to proper multimodal format according to Cohere v2 API
             api_input_document = {
                 "content": [
-                    {"type": "image", "image": base64_from_image(content)},
+                    {"type": "image_url", "image_url": {"url": base64_from_image(content)}},
                 ]
             }
             response = co_client.embed(
